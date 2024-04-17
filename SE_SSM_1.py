@@ -112,9 +112,9 @@ num_days = data.shape[0]
 input_dim = 1
 hidden_dim = 64
 output_dim = 1
-num_heads = 4
+num_heads = 8
 num_ssm_modules = 4
-num_ssm_layers = 4
+num_ssm_layers = 5
 seq_len = 30
 batch_size = 32
 
@@ -122,7 +122,7 @@ batch_size = 32
 data = data.reshape(num_days, num_cities, 1)
 
 # 将数据分为训练集、验证集和测试集（按时间划分）
-train_ratio = 0.7
+train_ratio = 0.8
 val_ratio = 0.1
 train_size = int(num_days * train_ratio)
 val_size = int(num_days * val_ratio)
@@ -148,7 +148,7 @@ optimizer = optim.Adam(model.parameters(), lr=1e-3, weight_decay=1e-5)
 criterion = nn.MSELoss()
 
 # 训练模型
-num_epochs = 500
+num_epochs = 800
 
 for epoch in range(num_epochs):
     model.train()
