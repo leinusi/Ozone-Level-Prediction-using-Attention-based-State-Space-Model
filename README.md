@@ -1,3 +1,4 @@
+
 Ozone Level Prediction using Attention-based State Space Model
 This repository contains the implementation of an attention-based state space model for predicting ozone levels in cities. The model combines attention mechanisms and state space modeling techniques to capture long-term dependencies and dynamic variations in time series data.
 
@@ -5,8 +6,11 @@ Model Architecture
 The model consists of three main components:
 
 Attention Module: The attention module is designed to capture long-range dependencies in the time series data. It takes the input data and computes attention weights to focus on relevant information across different time steps.
+
 State Space Model (SSM): The state space model is used to model the dynamic changes in the time series. It consists of an observation model and a transition model. The observation model maps the input data to the hidden states, while the transition model captures the temporal evolution of the hidden states.
+
 Ozone Model: The ozone model combines multiple SSM modules in parallel to enhance the expressiveness of the model. The outputs from the attention module are fed into each SSM module, and the final prediction is obtained by averaging the outputs from all SSM modules.
+
 Dataset
 The model is trained and evaluated on the ozone level dataset (target.npy). The dataset contains ozone concentration measurements for multiple cities over a certain period of time. The data is preprocessed and reshaped into the format of (num_days, num_cities, 1) before being used for training and testing.
 
