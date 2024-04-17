@@ -38,7 +38,7 @@ PyTorch
 NumPy
 Matplotlib
 scikit-learn
-Usage
+# Usage
 
 To run the code, ensure that you have the required dependencies installed. Place the ozone level dataset (target.npy) in the same directory as the code file. Run the code using a Python interpreter, and the model will be trained, evaluated, and the results will be displayed.
 
