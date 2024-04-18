@@ -80,29 +80,22 @@ class StateSpaceModel(nn.Module):
 
 
 class OzoneModel(nn.Module):
-    def __init__(self, input_dim, hidden_dim, output_dim, num_heads, num_ssm_modules, num_ssm_layers, num_cities, variational=False):
+    def __init__(self, input_dim, hidden_dim, output_dim, num_heads, num_ssm_layers, num_cities, variational=False):
         super(OzoneModel, self).__init__()
         self.input_dim = input_dim
         self.hidden_dim = hidden_dim
         self.output_dim = output_dim
         self.num_heads = num_heads
-        self.num_ssm_modules = num_ssm_modules
         self.num_cities = num_cities
         self.attention = AttentionModule(input_dim, hidden_dim, num_heads, num_cities)
-        self.ssm_modules = nn.ModuleList([StateSpaceModel(input_dim, hidden_dim, output_dim, num_ssm_layers, variational=variational) for _ in range(num_ssm_modules)])
+        self.ssm_module = StateSpaceModel(input_dim, hidden_dim, output_dim, num_ssm_layers, variational=variational)
 
-    def forward(self, x, states):
+    def forward(self, x, state):
         attended_x = self.attention(x)
-        observations = []
-        new_states = []
-        for i, ssm_module in enumerate(self.ssm_modules):
-            state_i = states[i].view(x.size(0), -1)
-            state_i = state_i.unsqueeze(1).repeat(1, self.num_cities, 1)
-            observation, new_state = ssm_module(attended_x, state_i)
-            observations.append(observation)
-            new_states.append(new_state.view(x.size(0), -1))
-        observation = torch.stack(observations).mean(dim=0)
-        return (observation,) + tuple(new_states)
+        state = state.view(x.size(0), -1)
+        state = state.unsqueeze(1).repeat(1, self.num_cities, 1)
+        observation, new_state = self.ssm_module(attended_x, state)
+        return observation, new_state.view(x.size(0), -1)
 
 data = np.load('target.npy') 
 num_cities = data.shape[1]  
@@ -112,9 +105,8 @@ num_days = data.shape[0]
 input_dim = 1
 hidden_dim = 64
 output_dim = 1
-num_heads = 8
-num_ssm_modules = 4
-num_ssm_layers = 5
+num_heads = 4
+num_ssm_layers = 4
 seq_len = 30
 batch_size = 32
 
@@ -122,7 +114,7 @@ batch_size = 32
 data = data.reshape(num_days, num_cities, 1)
 
 # 将数据分为训练集、验证集和测试集（按时间划分）
-train_ratio = 0.8
+train_ratio = 0.7
 val_ratio = 0.1
 train_size = int(num_days * train_ratio)
 val_size = int(num_days * val_ratio)
@@ -143,22 +135,22 @@ val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
 
 # 初始化模型和优化器
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model = OzoneModel(input_dim, hidden_dim, output_dim, num_heads, num_ssm_modules, num_ssm_layers, num_cities, variational=True).to(device)
+model = OzoneModel(input_dim, hidden_dim, output_dim, num_heads, num_ssm_layers, num_cities, variational=True).to(device)
 optimizer = optim.Adam(model.parameters(), lr=1e-3, weight_decay=1e-5)
 criterion = nn.MSELoss()
 
 # 训练模型
-num_epochs = 800
+num_epochs = 1200
 
 for epoch in range(num_epochs):
     model.train()
     train_loss = 0.0
     for batch_data in train_loader:
         batch_data = batch_data[0].to(device)
-        states = [torch.zeros(batch_data.size(0), hidden_dim).to(device) for _ in range(num_ssm_modules)]
+        state = torch.zeros(batch_data.size(0), hidden_dim).to(device)
         optimizer.zero_grad()
         
-        preds = model(batch_data, states)[0]
+        preds, _ = model(batch_data, state)
         loss = criterion(preds.view(batch_data.size()), batch_data)
         
         loss.backward()
@@ -173,8 +165,8 @@ for epoch in range(num_epochs):
     with torch.no_grad():
         for batch_data in val_loader:
             batch_data = batch_data[0].to(device)
-            states = [torch.zeros(batch_data.size(0), hidden_dim).to(device) for _ in range(num_ssm_modules)]
-            preds = model(batch_data, states)[0]
+            state = torch.zeros(batch_data.size(0), hidden_dim).to(device)
+            preds, _ = model(batch_data, state)
             loss = criterion(preds.view(batch_data.size()), batch_data)
             val_loss += loss.item()
     
@@ -185,12 +177,9 @@ for epoch in range(num_epochs):
 # 测试模型
 model.eval()
 test_data = test_data.to(device)
-state1 = torch.zeros(test_data.size(0), hidden_dim).to(device)
-state2 = torch.zeros(test_data.size(0), hidden_dim).to(device)
-state3 = torch.zeros(test_data.size(0), hidden_dim).to(device)
-state4 = torch.zeros(test_data.size(0), hidden_dim).to(device)
+state = torch.zeros(test_data.size(0), hidden_dim).to(device)
 with torch.no_grad():
-    test_preds, _, _, _, _ = model(test_data, [state1, state2, state3, state4])
+    test_preds, _ = model(test_data, state)
 
 # 计算各种评价指标
 y_true = test_data.cpu().numpy().flatten()
